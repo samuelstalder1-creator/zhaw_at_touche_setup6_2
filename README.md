@@ -3,7 +3,8 @@
 This directory is a self-contained TIRA code submission for the
 `advertisement-in-retrieval-augmented-generation-2026` task. The container
 entrypoint is `/predict.py`. At runtime it loads the published classifier
-`sambus211/zhaw_at_touche_setup6_2`, reads the TIRA input dataset, and writes
+checkpoint from `sambus211/zhaw_at_touche_setup6_2`, reads the TIRA input
+dataset, and writes
 `predictions.jsonl` in the format expected by the shared task.
 
 ## Submission Package Contents
@@ -14,9 +15,10 @@ entrypoint is `/predict.py`. At runtime it loads the published classifier
 - `.dockerignore`: excludes local caches and outputs from the image context
 - `README.md`: submission specification and operator notes
 
-The package does not need local training code. The Docker build preloads both
-the published tokenizer and classifier weights so the final TIRA runtime can
-stay offline.
+The package does not need local training code. The Docker build preloads the
+published `setup6_2` checkpoint so the final TIRA runtime can stay offline.
+This matches the main `zhaw_at_touche` evaluation code, which loads a standard
+Hugging Face checkpoint directory with `from_pretrained(...)`.
 
 ## Runtime Contract
 
@@ -87,6 +89,29 @@ Each output row is a JSON object with exactly these fields:
 - Default max length: `512`
 - Default threshold: `0.5`
 - Default device selection: `cuda`, then `mps`, then `cpu`
+
+## Hugging Face Upload
+
+For a model-only submission, the Hugging Face repo must contain the files from
+the trained checkpoint directory at the repo root. For `setup6`, that means
+uploading the contents of `zhaw_at_touche/models/setup6/`, not the parent
+`models/` directory.
+
+Required files:
+
+- `config.json`
+- `model.safetensors`
+- `tokenizer.json`
+- `tokenizer_config.json`
+
+Optional but useful:
+
+- `training_summary.json`
+- `training_metrics.jsonl`
+- `README.md`
+
+The submission does not need a separate `FacebookAI/roberta-base` download if
+the Hugging Face repo contains the full `save_pretrained(...)` export.
 
 Override values if needed:
 
