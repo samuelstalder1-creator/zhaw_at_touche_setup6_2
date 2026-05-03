@@ -3,8 +3,10 @@
 This directory is a self-contained TIRA code submission for the
 `advertisement-in-retrieval-augmented-generation-2026` task. The container
 entrypoint is `/predict.py`. At runtime it loads the published classifier
-`sambus211/zhaw_at_touche_setup6_2`, reads the TIRA input dataset, and writes
-`predictions.jsonl` in the format expected by the shared task.
+`sambus211/zhaw_at_touche_setup6_2`, initializes the backbone from
+`FacebookAI/roberta-base`, overlays the fine-tuned checkpoint weights, reads
+the TIRA input dataset, and writes `predictions.jsonl` in the format expected
+by the shared task.
 
 ## Submission Package Contents
 
@@ -14,8 +16,9 @@ entrypoint is `/predict.py`. At runtime it loads the published classifier
 - `.dockerignore`: excludes local caches and outputs from the image context
 - `README.md`: submission specification and operator notes
 
-The package does not need local training code. The Docker build preloads the
-published Hugging Face checkpoint so the final TIRA runtime can stay offline.
+The package does not need local training code. The Docker build preloads both
+the published fine-tuned checkpoint and the base `FacebookAI/roberta-base`
+weights so the final TIRA runtime can stay offline.
 
 ## Runtime Contract
 
@@ -81,6 +84,7 @@ Each output row is a JSON object with exactly these fields:
 ## Model and Inference Defaults
 
 - Model: `sambus211/zhaw_at_touche_setup6_2`
+- Base model: `FacebookAI/roberta-base`
 - Architecture: `RobertaForSequenceClassification`
 - Default batch size: `16`
 - Default max length: `512`
@@ -94,6 +98,7 @@ Override values if needed:
   --dataset ../zhaw_at_touche/data/task \
   --output ./out/predictions.jsonl \
   --model-name sambus211/zhaw_at_touche_setup6_2 \
+  --base-model-name FacebookAI/roberta-base \
   --batch-size 16 \
   --max-length 512 \
   --threshold 0.5 \
