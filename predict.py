@@ -8,14 +8,11 @@ from pathlib import Path
 from typing import Any
 
 import torch
-from safetensors.torch import load_file as load_safetensors_file
 from tira.rest_api_client import Client
 from tira.third_party_integrations import get_output_directory
-from transformers import AutoConfig, AutoModelForSequenceClassification, AutoTokenizer
-from transformers.utils import cached_file
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 MODEL_NAME = "sambus211/zhaw_at_touche_setup6_2"
-BASE_MODEL_NAME = "FacebookAI/roberta-base"
 DEFAULT_TAG = "zhawAtToucheSetup62"
 DEFAULT_BATCH_SIZE = 16
 DEFAULT_MAX_LENGTH = 512
@@ -186,69 +183,12 @@ def load_from_pretrained_with_local_fallback(loader, model_name: str, **kwargs):
         return loader(model_name, **kwargs)
 
 
-def resolve_weights_file(model_name: str) -> Path:
-    candidate_filenames = ("model.safetensors", "pytorch_model.bin")
-    model_path = Path(model_name)
-    if model_path.exists():
-        for filename in candidate_filenames:
-            candidate = model_path / filename
-            if candidate.exists():
-                return candidate
-        raise FileNotFoundError(
-            f"Could not find fine-tuned weights under {model_path}. "
-            f"Expected one of: {', '.join(candidate_filenames)}"
-        )
-
-    for filename in candidate_filenames:
-        try:
-            return Path(cached_file(model_name, filename, local_files_only=True))
-        except OSError:
-            try:
-                return Path(cached_file(model_name, filename))
-            except OSError:
-                continue
-
-    raise FileNotFoundError(
-        f"Could not resolve fine-tuned weights for {model_name}. "
-        f"Expected one of: {', '.join(candidate_filenames)}"
-    )
-
-
-def load_state_dict(weights_file: Path) -> dict[str, torch.Tensor]:
-    if weights_file.suffix == ".safetensors":
-        raw_state_dict = load_safetensors_file(str(weights_file), device="cpu")
-    else:
-        raw_state_dict = torch.load(weights_file, map_location="cpu")
-
-    normalized_state_dict: dict[str, torch.Tensor] = {}
-    for key, value in raw_state_dict.items():
-        normalized_key = key.replace(".beta", ".bias").replace(".gamma", ".weight")
-        normalized_state_dict[normalized_key] = value
-    return normalized_state_dict
-
-
-def load_model(model_name: str, base_model_name: str, device: str):
+def load_model(model_name: str, device: str):
     tokenizer = load_from_pretrained_with_local_fallback(AutoTokenizer.from_pretrained, model_name)
-    config = load_from_pretrained_with_local_fallback(AutoConfig.from_pretrained, model_name)
     model = load_from_pretrained_with_local_fallback(
         AutoModelForSequenceClassification.from_pretrained,
-        base_model_name,
-        config=config,
-        ignore_mismatched_sizes=True,
-    )
-    weights_file = resolve_weights_file(model_name)
-    state_dict = load_state_dict(weights_file)
-    incompatible = model.load_state_dict(state_dict, strict=False)
-    allowed_missing = {"roberta.embeddings.position_ids"}
-    unexpected_keys = set(incompatible.unexpected_keys)
-    missing_keys = set(incompatible.missing_keys) - allowed_missing
-    if unexpected_keys or missing_keys:
-        raise ValueError(
-            "Fine-tuned checkpoint did not cleanly load on top of the base model. "
-            f"missing_keys={sorted(missing_keys)} unexpected_keys={sorted(unexpected_keys)}"
-        )
-    model = model.to(device)
-
+        model_name,
+    ).to(device)
     model.eval()
     return tokenizer, model
 
@@ -345,7 +285,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional explicit prediction file path. Overrides --output-directory when set.",
     )
     parser.add_argument("--model-name", default=MODEL_NAME)
-    parser.add_argument("--base-model-name", default=BASE_MODEL_NAME)
     parser.add_argument("--tag", default=DEFAULT_TAG)
     parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
     parser.add_argument("--max-length", type=int, default=DEFAULT_MAX_LENGTH)
@@ -361,7 +300,7 @@ def main() -> None:
     output_file = resolve_output_file(args)
 
     device = resolve_device(args.device)
-    tokenizer, model = load_model(args.model_name, args.base_model_name, device)
+    tokenizer, model = load_model(args.model_name, device)
     labels = predict_labels(
         records=records,
         model=model,
@@ -377,7 +316,6 @@ def main() -> None:
     print(f"rows={len(records)}")
     print(f"output_file={output_file}")
     print(f"model_name={args.model_name}")
-    print(f"base_model_name={args.base_model_name}")
     print(f"tag={args.tag}")
 
 

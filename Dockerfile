@@ -6,16 +6,12 @@ ADD requirements.txt /requirements.txt
 RUN pip3 install --no-cache-dir -r /requirements.txt
 
 ARG MODEL_NAME=sambus211/zhaw_at_touche_setup6_2
-ARG BASE_MODEL_NAME=FacebookAI/roberta-base
 
 RUN python3 - <<PY
-from transformers import AutoConfig, AutoModel, AutoTokenizer
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 model_name = "${MODEL_NAME}"
-base_model_name = "${BASE_MODEL_NAME}"
 AutoTokenizer.from_pretrained(model_name)
-AutoConfig.from_pretrained(model_name)
-AutoTokenizer.from_pretrained(base_model_name)
-AutoModel.from_pretrained(base_model_name)
+AutoModelForSequenceClassification.from_pretrained(model_name)
 PY
 
 ENTRYPOINT ["python3", "/predict.py"]
